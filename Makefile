@@ -1,7 +1,15 @@
-###
-# Purpose: to create a bare-metal project with mbed SDK.
+# Project name
+PROJECT=project
 
-###
+# User defined global definitions
+DEFS = 
+
+# Directory Structure
+BINDIR=bin
+INCDIR=inc
+SRCDIR=src
+OBJDIR=obj
+
 # GNU ARM Embedded Toolchain
 CC=arm-none-eabi-gcc
 CXX=arm-none-eabi-g++
@@ -14,38 +22,37 @@ NM=arm-none-eabi-nm
 SIZE=arm-none-eabi-size
 A2L=arm-none-eabi-addr2line
 
-###
-# Directory Structure
-BINDIR=bin
-INCDIR=inc
-SRCDIR=src
-
-###
 # Find source files
 ASOURCES=$(shell find -L $(SRCDIR) -name '*.s')
 CSOURCES=$(shell find -L $(SRCDIR) -name '*.c')
-CXXSOURCES=$(shell find -L $(SRCDIR) -name '*.cpp')
+CPPSOURCES=$(shell find -L $(SRCDIR) -name '*.cpp')
+
 # Find header directories
 INC=$(shell find -L $(INCDIR) -name '*.h' -exec dirname {} \; | uniq)
 INCLUDES=$(INC:%=-I%)
+
 # Find libraries
 INCLUDES_LIBS=
 LINK_LIBS=
-# Create object list
-OBJECTS=$(ASOURCES:%.s=%.o)
-OBJECTS+=$(CSOURCES:%.c=%.o)
-OBJECTS+=$(CXXSOURCES:%.cpp=%.o)
-# Define output files ELF & IHEX
-BINELF=outp.elf
-BINHEX=outp.hex
 
-###
-# MCU FLAGS
+# Create object list
+AOBJECTS=$(patsubst $(SRCDIR)/%, $(OBJDIR)/%,$(ASOURCES:%.s=%.o))
+COBJECTS=$(patsubst $(SRCDIR)/%, $(OBJDIR)/%,$(CSOURCES:%.c=%.o))
+CPPOBJECTS=$(patsubst $(SRCDIR)/%, $(OBJDIR)/%,$(CPPSOURCES:%.cpp=%.o))
+OBJECTS=$(AOBJECTS) $(COBJECTS) $(CPPOBJECTS)
+
+# Define output files ELF & IHEX
+BINELF=$(PROJECT).elf
+BINHEX=$(PROJECT).hex
+
+# MCU FLAGS -> These can be found by sifting through openocd makefiles
 MCFLAGS=-mcpu=cortex-m3 -mthumb -mlittle-endian -msoft-float
+DEFS+= -DSTM32F10X_MD
+
 # COMPILE FLAGS
-DEFS= -DSTM32F10X_MD
 CFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES)
 CXXFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES) -std=c++11
+
 # LINKER FLAGS
 LDSCRIPT=stm32_flash.ld
 LDFLAGS =-T $(LDSCRIPT) $(MCFLAGS) --specs=nosys.specs $(INCLUDES_LIBS) $(LINK_LIBS)
@@ -90,24 +97,29 @@ $(BINDIR)/$(BINHEX): $(BINDIR)/$(BINELF)
 #   $(CXX) $(OBJECTS) $(LDFLAGS) -o $@ to 
 #   $(CC) $(OBJECTS) $(LDFLAGS) -o $@ if
 #   C linker is required.
+
 $(BINDIR)/$(BINELF): $(OBJECTS)
+	mkdir -p $(BINDIR)
 	$(CXX) $(OBJECTS) $(LDFLAGS) -o $@
 	@echo "Linking complete!\n"
 	$(SIZE) $(BINDIR)/$(BINELF)
 
-%.o: %.cpp
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $< -o $@
 	@echo "Compiled "$<"!\n"
 
-%.o: %.c
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 	@echo "Compiled "$<"!\n"
 
-%.o: %.s
+$(OBJDIR)/%.o: $(SRCDIR)/%.s
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 	@echo "Assambled "$<"!\n"
 clean:
-	rm -f $(OBJECTS) $(BINDIR)/$(BINELF) $(BINDIR)/$(BINHEX) $(BINDIR)/output.map
+	rm -rf obj bin
 
 deploy:
 ifeq ($(wildcard /opt/openocd/bin/openocd),)
@@ -115,3 +127,6 @@ ifeq ($(wildcard /opt/openocd/bin/openocd),)
 else
 	/opt/openocd/bin/openocd -f /opt/openocd/share/openocd/scripts/board/stm32f4discovery.cfg -c "program bin/"$(BINELF)" verify reset"
 endif
+
+print-%  : ; @echo $* = $($*)
+
