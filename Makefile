@@ -11,6 +11,10 @@ SRCDIR=src
 LIBDIR=lib
 OBJDIR=obj
 
+# Startup File
+# Choose the correct one from lib/CMSIS/startup
+STARTUP = startup_stm32f10x_md.s
+
 # GNU ARM Embedded Toolchain
 CC=arm-none-eabi-gcc
 CXX=arm-none-eabi-g++
@@ -24,7 +28,7 @@ SIZE=arm-none-eabi-size
 A2L=arm-none-eabi-addr2line
 
 # Find source files
-ASOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.s')
+ASOURCES=$(LIBDIR)/CMSIS/startup/$(STARTUP)
 CSOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.c')
 CPPSOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.cpp')
 
