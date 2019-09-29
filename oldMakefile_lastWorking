@@ -1,0 +1,181 @@
+# Project name
+PROJECT = MyProject
+
+# List all C defines here
+VERSION =0
+DEFS = -DSTM32F10X_MD -DFW_VERSION=$(VERSION)
+# DEFS += -DDEBUG
+
+# Debug level
+#DEBUG = -g3 #-Wa,-adhlns="$@.lst"
+DEBUG = -g3
+
+# Define optimisation level here
+OPT = -Os
+
+# JLink config
+#JLINKARGS = -if swd -device STM32L011G4 -speed 1000 -autoconnect 1
+
+# Tools
+PREFIX = arm-none-eabi-
+CC   = $(PREFIX)gcc
+CXX  = $(PREFIX)g++
+GDB  = $(PREFIX)gdb
+CP   = $(PREFIX)objcopy
+AS   = $(PREFIX)gcc -x assembler-with-cpp
+SIZE = $(PREFIX)size
+HEX  = $(CP) -O ihex
+BIN  = $(CP) -O binary -S
+
+
+# List of source files
+#SRC  = src/main.cpp
+#SRC  += src/main2.cpp
+
+C_SRC += src/main.c
+C_SRC += src/system_stm32f10x.c
+
+# List assembly startup source file here
+STARTUP = src/startup_stm32f10x_md.s
+ 
+# List all include directories here
+INCDIRS = ./src ./inc ./inc/CMSIS/ 
+              
+# List the user directory to look for the libraries here
+LIBDIRS += ./lib
+
+# Define linker script file here
+LINKER_SCRIPT = stm32_flash.ld
+
+# Dirs
+OBJS  = $(addprefix objs/, $(STARTUP:.s=.o) $(addsuffix .o, $(basename $(C_SRC))) $(addsuffix .o, $(basename $(SRC))))
+DEPS  = $(patsubst objs/%, deps/%, $(OBJS:.o=.d))
+INCDIR  = $(patsubst %,-I%, $(INCDIRS))
+LIBDIR  = $(patsubst %,-L%, $(LIBDIRS))
+
+# Flags
+FP_FLAGS = -msoft-float
+ARCH_FLAGS = -mthumb -mcpu=cortex-m3 $(FP_FLAGS) -mfix-cortex-m3-ldrd
+COMMONFLAGS = $(FP_FLAGS) $(ARCH_FLAGS)
+ASFLAGS = $(COMMONFLAGS) $(DEBUG)
+CFLAGS  = $(COMMONFLAGS) $(OPT) $(DEFS) $(DEBUG) -Wall -Wextra -ffunction-sections -fdata-sections -finline-small-functions -findirect-inlining
+CPFLAGS = $(COMMONFLAGS) $(OPT) $(DEFS) $(DEBUG) -Wall -Wextra -ffunction-sections -fdata-sections -finline-small-functions -findirect-inlining -fno-exceptions -fno-rtti 
+LDFLAGS = $(COMMONFLAGS) -T$(LINKER_SCRIPT) -Wl,-Map=$(PROJECT).map -Wl,--gc-sections $(LIBDIR) $(LIB)
+ 
+# Helper for colorizing output
+define colorecho
+      @printf "$1: "
+      @if tty -s; then tput setaf $3; fi
+      @echo $2
+      @if tty -s; then tput sgr0; fi
+endef
+
+#
+# Makefile Rules
+#
+ 
+UNAME_S = $(shell uname -s)
+
+all: $(OBJS) $(PROJECT).elf  $(PROJECT).hex $(PROJECT).bin
+
+analyze_elf_contents: $(PROJECT).elf
+	@arm-none-eabi-nm $(PROJECT).elf -S --size-sort -t d -C
+	
+objs/%.o: %.c
+	$(call colorecho, "Compiling", "$<", 6)
+	@mkdir -p objs/$(dir $<)
+	@mkdir -p deps/$(dir $<)
+	@$(CC) -c $(CFLAGS) -I . $(INCDIR)  -MMD -MP -MF deps/$(basename $<).d $< -o $@
+
+objs/%.o: %.cpp
+	$(call colorecho, "Compiling", "$<", 6)
+	@mkdir -p objs/$(dir $<)
+	@mkdir -p deps/$(dir $<)
+	@$(CC) -c $(CPFLAGS) -I . $(INCDIR) -MMD -MP -MF deps/$(basename $<).d $< -o $@
+
+objs/%.o: %.s
+	$(call colorecho, "Compiling", "$<", 6)
+	@mkdir -p objs/$(dir $<)
+	@$(AS) -c $(ASFLAGS) $< -o $@
+
+-include $(DEPS)
+
+%.elf: $(OBJS)
+	$(call colorecho, "Linking", "$@", 6)
+	@$(CC) $(OBJS) $(LDFLAGS) -o $@
+	@$(TRGT)size $(PROJECT).elf
+
+%.hex: %.elf
+	$(call colorecho, "Converting", "$@", 6)
+	@$(HEX) $< $@
+
+%.bin: %.elf
+	$(call colorecho, "Converting", "$@", 6)
+	@$(BIN) $< $@
+
+flash: $(PROJECT).bin
+	openocd -f openocd.cfg  -c "init" -c "reset halt" -c "program MyProject.elf" -c "exit"
+
+jflash: $(PROJECT).bin $(PROJECT).hex
+	@echo "Flashing device."
+	@JLinkExe $(JLINKARGS) -commanderscript scripts/flash.jlink
+
+lockdevice:
+	@echo "Locking device."
+	@JLinkExe $(JLINKARGS) -commanderscript scripts/stm32l0_lock.jlink
+
+unlockdevice:
+	@echo "Unlocking/erasing device."
+	@JLinkExe $(JLINKARGS) -commanderscript scripts/stm32l0_unlock.jlink
+
+factory_flash: unlockdevice jflash lockdevice
+	
+dumpflash:
+	JLinkExe $(JLINKARGS) -commanderscript scripts/dumpflash.jlink
+
+duplicateflashdump: flash_contents.bin
+	JLinkExe $(JLINKARGS) -commanderscript scripts/duplicateflashdump.jlink
+
+write_eeprom:
+	cp scripts/write_eeprom_template.jlink scripts/~write_eeprom_tmp.jlink
+	sed -i -e 's/{{SERNO}}/$(SERNO)/g'                 scripts/~write_eeprom_tmp.jlink
+	sed -i -e 's/{{SERNO_PREFIX}}/$(SERNO_PREFIX)/g'   scripts/~write_eeprom_tmp.jlink 
+	sed -i -e 's/{{REGION}}/$(REGION)/g'               scripts/~write_eeprom_tmp.jlink 
+	sed -i -e 's/{{FACTORY_STATE}}/$(FACTORY_STATE)/g' scripts/~write_eeprom_tmp.jlink 
+	JLinkExe $(JLINKARGS) -commanderscript scripts/~write_eeprom_tmp.jlink 
+
+read_eeprom_raw:
+	JLinkExe $(JLINKARGS) -commanderscript scripts/read_eeprom.jlink
+
+read_eeprom:
+	@./scripts/read_eeprom.py
+
+erase:
+	openocd -f openocd.cfg -c "init" -c "halt" -c "stm32lx mass_erase 0" -c "exit"
+
+debug: $(PROJECT).elf runjlinkserver
+	arm-none-eabi-gdb -iex "file MyProject.elf" -iex="target remote localhost:2331" -ex "monitor reset"
+
+runjlinkserver: $(PROJECT).elf
+ifeq ($(UNAME_S), Darwin)
+	osascript -e "tell app \"Terminal\" to do script \"cd $$(pwd); make jlinkserver && exit\""
+	osascript -e "tell front window of application \"Terminal\" to set selected tab to tab 1"
+else 
+	echo "Running jlinkGDBserver like this is not supported in this script for this OS yet! Just add an entry that can run it in a seperate terminal."  
+endif
+
+jlinkserver: $(PROJECT).elf 
+	JLinkGDBServer -if swd -device STM32L011G4 -speed 1000 -singlerun -timeout 0
+
+clean:
+	-rm -rf deps/ -r
+	-rm -rf objs/ -r
+	-rm -rf $(OBJS)
+	-rm -rf $(PROJECT).elf
+	-rm -rf $(PROJECT).map
+	-rm -rf $(PROJECT).hex
+	-rm -rf $(PROJECT).bin
+	-rm -rf $(addsuffix .lst, $(OBJS))
+	-rm -rf $(ASRC:.s=.lst)
+
+print-%  : ; @echo $* = $($*)
