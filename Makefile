@@ -15,6 +15,9 @@ OBJDIR=obj
 # Choose the correct one from lib/CMSIS/startup
 STARTUP = startup_stm32f10x_md.s
 
+# Linker Script, choose one from util/linker or modify one to suit
+LDSCRIPT=stm32f103vb_flash.ld
+
 # GNU ARM Embedded Toolchain
 CC=arm-none-eabi-gcc
 CXX=arm-none-eabi-g++
@@ -55,8 +58,7 @@ CFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES)
 CXXFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES) -std=c++11
 
 # LINKER FLAGS
-LDSCRIPT=stm32_flash.ld
-LDFLAGS =-T $(LDSCRIPT) $(MCFLAGS) --specs=nosys.specs $(INCLUDES_LIBS) $(LINK_LIBS)
+LDFLAGS =-T util/linker/$(LDSCRIPT) $(MCFLAGS) --specs=nosys.specs $(INCLUDES_LIBS) $(LINK_LIBS)
 
 ###
 # Build Rules
