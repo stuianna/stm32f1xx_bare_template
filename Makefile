@@ -8,6 +8,7 @@ DEFS =
 BINDIR=bin
 INCDIR=inc
 SRCDIR=src
+LIBDIR=lib
 OBJDIR=obj
 
 # GNU ARM Embedded Toolchain
@@ -23,23 +24,19 @@ SIZE=arm-none-eabi-size
 A2L=arm-none-eabi-addr2line
 
 # Find source files
-ASOURCES=$(shell find -L $(SRCDIR) -name '*.s')
-CSOURCES=$(shell find -L $(SRCDIR) -name '*.c')
-CPPSOURCES=$(shell find -L $(SRCDIR) -name '*.cpp')
+ASOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.s')
+CSOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.c')
+CPPSOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.cpp')
 
 # Find header directories
 INC=$(shell find -L $(INCDIR) -name '*.h' -exec dirname {} \; | uniq)
 INCLUDES=$(INC:%=-I%)
 
-# Find libraries
-INCLUDES_LIBS=
-LINK_LIBS=
+AOBJECTS = $(patsubst %,obj/%,$(ASOURCES))
+COBJECTS = $(patsubst %,obj/%,$(CSOURCES))
+CPPOBJECTS = $(patsubst %,obj/%,$(CPPSOURCES))
 
-# Create object list
-AOBJECTS=$(patsubst $(SRCDIR)/%, $(OBJDIR)/%,$(ASOURCES:%.s=%.o))
-COBJECTS=$(patsubst $(SRCDIR)/%, $(OBJDIR)/%,$(CSOURCES:%.c=%.o))
-CPPOBJECTS=$(patsubst $(SRCDIR)/%, $(OBJDIR)/%,$(CPPSOURCES:%.cpp=%.o))
-OBJECTS=$(AOBJECTS) $(COBJECTS) $(CPPOBJECTS)
+OBJECTS=$(AOBJECTS:%.s=%.o) $(COBJECTS:%.c=%.o) $(CPPOBJECTS:%.cpp=%.o)
 
 # Define output files ELF & IHEX
 BINELF=$(PROJECT).elf
@@ -90,31 +87,23 @@ $(BINDIR)/$(BINHEX): $(BINDIR)/$(BINELF)
 	$(CP) -O ihex $< $@
 	@echo "Objcopy from ELF to IHEX complete!\n"
 
-##
-# C++ linking is used.
-#
-# Change
-#   $(CXX) $(OBJECTS) $(LDFLAGS) -o $@ to 
-#   $(CC) $(OBJECTS) $(LDFLAGS) -o $@ if
-#   C linker is required.
-
 $(BINDIR)/$(BINELF): $(OBJECTS)
 	mkdir -p $(BINDIR)
 	$(CXX) $(OBJECTS) $(LDFLAGS) -o $@
 	@echo "Linking complete!\n"
 	$(SIZE) $(BINDIR)/$(BINELF)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+$(OBJDIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $< -o $@
 	@echo "Compiled "$<"!\n"
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
+$(OBJDIR)/%.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 	@echo "Compiled "$<"!\n"
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.s
+$(OBJDIR)/%.o: %.s
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 	@echo "Assambled "$<"!\n"
