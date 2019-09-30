@@ -80,21 +80,12 @@ LDFLAGS += -T util/linker/$(LDSCRIPT) $(MCFLAGS)
 
 all: release
 
-release-memopt-blame: CFLAGS+=-g
-release-memopt-blame: CXXFLAGS+=-g
-release-memopt-blame: LDFLAGS+=-g -Wl,-Map=$(BINDIR)/$(PROJECT).map
-release-memopt-blame: release-memopt
-release-memopt-blame:
-	@echo "Top 10 space consuming symbols from the object code ...\n"
-	$(NM) -A -l -C -td --reverse-sort --size-sort $(BINDIR)/$(BINELF) | head -n10 | cat -n # Output legend: man nm
-	@echo "\n... and corresponging source files to blame.\n"
-	$(NM) --reverse-sort --size-sort -S -tx $(BINDIR)/$(BINELF) | head -10 | cut -d':' -f2 | cut -d' ' -f1 | $(A2L) -e $(BINDIR)/$(BINELF) | cat -n # Output legend: man addr2line
-
-release-memopt: DEFS+=-DCUSTOM_NEW -DNO_EXCEPTIONS
-release-memopt: CFLAGS+=-Os -ffunction-sections -fdata-sections -fno-builtin # -flto
-release-memopt: CXXFLAGS+=-Os -fno-exceptions -ffunction-sections -fdata-sections -fno-builtin -fno-rtti # -flto
-release-memopt: LDFLAGS+=-Os -Wl,-gc-sections --specs=nano.specs # -flto
-$(patsubst %.c,%.o,$(wildcard *.c))release-memopt: release
+memory: CFLAGS+=-g
+memory: CXXFLAGS+=-g
+memory: LDFLAGS+=-g -Wl,-Map=$(BINDIR)/$(PROJECT).map
+memory:
+	@echo -e "\033[0;32m[Top Memory Use]\033[0m"
+	@$(NM) -A -l -C -td --reverse-sort --size-sort $(BINDIR)/$(BINELF) | head -n10 | cat -n
 
 debug: CFLAGS+=-g
 debug: CXXFLAGS+=-g
