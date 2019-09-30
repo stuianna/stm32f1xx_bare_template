@@ -16,7 +16,12 @@ OBJDIR=obj
 STARTUP = startup_stm32f10x_md.s
 
 # Linker Script, choose one from util/linker or modify one to suit
+# The files are fundamentally the same, just the memory mapping differs.
 LDSCRIPT=stm32f103vb_flash.ld
+
+OPENOCD_INTERFACE=stlink-v2
+OPENOCD_TARGET=stm32f1x
+
 
 # GNU ARM Embedded Toolchain
 CC=arm-none-eabi-gcc
@@ -50,19 +55,19 @@ BINELF=$(PROJECT).elf
 BINHEX=$(PROJECT).hex
 
 # MCU FLAGS -> These can be found by sifting through openocd makefiles
+# Shouldn't need to be changed over the stm32f1xx family
 MCFLAGS=-mcpu=cortex-m3 -mthumb -mlittle-endian -msoft-float
 DEFS+= -DSTM32F10X_MD
 
 # COMPILE FLAGS
-CFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES)
+CFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES) -std=c99
 CXXFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES) -std=c++11
 
 # LINKER FLAGS
-LDFLAGS =-T util/linker/$(LDSCRIPT) $(MCFLAGS) --specs=nosys.specs $(INCLUDES_LIBS) $(LINK_LIBS)
+LDFLAGS =-T util/linker/$(LDSCRIPT) $(MCFLAGS) --specs=nosys.specs 
 
-###
 # Build Rules
-.PHONY: all release release-memopt debug clean
+.PHONY: all release release-memopt debug clean flash
 
 all: release-memopt
 
@@ -80,7 +85,7 @@ release-memopt: DEFS+=-DCUSTOM_NEW -DNO_EXCEPTIONS
 release-memopt: CFLAGS+=-Os -ffunction-sections -fdata-sections -fno-builtin # -flto
 release-memopt: CXXFLAGS+=-Os -fno-exceptions -ffunction-sections -fdata-sections -fno-builtin -fno-rtti # -flto
 release-memopt: LDFLAGS+=-Os -Wl,-gc-sections --specs=nano.specs # -flto
-release-memopt: release
+$(patsubst %.c,%.o,$(wildcard *.c))release-memopt: release
 
 debug: CFLAGS+=-g
 debug: CXXFLAGS+=-g
@@ -113,15 +118,22 @@ $(OBJDIR)/%.o: %.s
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 	@echo "Assambled "$<"!\n"
+
+flash:
+	@openocd -f interface/$(OPENOCD_INTERFACE).cfg \
+		-f target/$(OPENOCD_TARGET).cfg \
+        -c "program $(BINDIR)/$(PROJECT).elf verify" \
+		-c "reset" \
+        -c "exit"
+erase:
+	@openocd -f interface/$(OPENOCD_INTERFACE).cfg \
+		-f target/$(OPENOCD_TARGET).cfg \
+		-c "init" \
+		-c "halt" \
+		-c "$(OPENOCD_TARGET) mass_erase 0" \
+        -c "exit"
 clean:
 	rm -rf obj bin
-
-deploy:
-ifeq ($(wildcard /opt/openocd/bin/openocd),)
-	/usr/bin/openocd -f /usr/share/openocd/scripts/board/stm32f4discovery.cfg -c "program bin/"$(BINELF)" verify reset"
-else
-	/opt/openocd/bin/openocd -f /opt/openocd/share/openocd/scripts/board/stm32f4discovery.cfg -c "program bin/"$(BINELF)" verify reset"
-endif
 
 print-%  : ; @echo $* = $($*)
 
