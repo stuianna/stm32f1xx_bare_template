@@ -22,6 +22,21 @@ LDSCRIPT=stm32f103vb_flash.ld
 OPENOCD_INTERFACE=stlink-v2
 OPENOCD_TARGET=stm32f1x
 
+# Define the processor family
+DEFS+= -DSTM32F10X_MD
+
+# C compilation flags
+CFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c99
+
+# C++ compilation flags
+CXXFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c++11
+
+# Linker flags
+LDFLAGS= -Wl,--gc-sections --static -nostartfiles -Wl,-Map=obj/$(PROJECT).map,--cref
+
+# MCU FLAGS -> These can be found by sifting through openocd makefiles
+# Shouldn't need to be changed over the stm32f1xx family
+MCFLAGS=-mcpu=cortex-m3 -mthumb -mlittle-endian -msoft-float -mfix-cortex-m3-ldrd
 
 # GNU ARM Embedded Toolchain
 CC=arm-none-eabi-gcc
@@ -44,6 +59,9 @@ CPPSOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.cpp')
 INC=$(shell find -L $(INCDIR) -name '*.h' -exec dirname {} \; | uniq)
 INCLUDES=$(INC:%=-I%)
 
+CFLAGS += -c $(MCFLAGS) $(DEFS) $(INCLUDES)
+CXXFLAGS += -c $(MCFLAGS) $(DEFS) $(INCLUDES)
+
 AOBJECTS = $(patsubst %,obj/%,$(ASOURCES))
 COBJECTS = $(patsubst %,obj/%,$(CSOURCES))
 CPPOBJECTS = $(patsubst %,obj/%,$(CPPSOURCES))
@@ -54,22 +72,13 @@ OBJECTS=$(AOBJECTS:%.s=%.o) $(COBJECTS:%.c=%.o) $(CPPOBJECTS:%.cpp=%.o)
 BINELF=$(PROJECT).elf
 BINHEX=$(PROJECT).hex
 
-# MCU FLAGS -> These can be found by sifting through openocd makefiles
-# Shouldn't need to be changed over the stm32f1xx family
-MCFLAGS=-mcpu=cortex-m3 -mthumb -mlittle-endian -msoft-float
-DEFS+= -DSTM32F10X_MD
-
-# COMPILE FLAGS
-CFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES) -std=c99
-CXXFLAGS=-c $(MCFLAGS) $(DEFS) $(INCLUDES) -std=c++11
-
-# LINKER FLAGS
-LDFLAGS =-T util/linker/$(LDSCRIPT) $(MCFLAGS) --specs=nosys.specs 
+# Additional linker flags
+LDFLAGS += -T util/linker/$(LDSCRIPT) $(MCFLAGS) 
 
 # Build Rules
-.PHONY: all release release-memopt debug clean flash
+.PHONY: all release release-memopt debug clean flash erase
 
-all: release-memopt
+all: release
 
 release-memopt-blame: CFLAGS+=-g
 release-memopt-blame: CXXFLAGS+=-g
@@ -119,7 +128,7 @@ $(OBJDIR)/%.o: %.s
 	$(CC) $(CFLAGS) $< -o $@
 	@echo "Assambled "$<"!\n"
 
-flash:
+flash: release
 	@openocd -f interface/$(OPENOCD_INTERFACE).cfg \
 		-f target/$(OPENOCD_TARGET).cfg \
         -c "program $(BINDIR)/$(PROJECT).elf verify" \
