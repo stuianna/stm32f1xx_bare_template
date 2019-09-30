@@ -82,7 +82,7 @@ all: release
 
 release-memopt-blame: CFLAGS+=-g
 release-memopt-blame: CXXFLAGS+=-g
-release-memopt-blame: LDFLAGS+=-g -Wl,-Map=$(BINDIR)/output.map
+release-memopt-blame: LDFLAGS+=-g -Wl,-Map=$(BINDIR)/$(PROJECT).map
 release-memopt-blame: release-memopt
 release-memopt-blame:
 	@echo "Top 10 space consuming symbols from the object code ...\n"
@@ -103,38 +103,43 @@ debug: release
 
 release: $(BINDIR)/$(BINHEX)
 
+
 $(BINDIR)/$(BINHEX): $(BINDIR)/$(BINELF)
-	$(CP) -O ihex $< $@
-	@echo "Objcopy from ELF to IHEX complete!\n"
+	@$(CP) -O ihex $< $@
+	@echo -e "\033[0;32m [OK] \033[0m       \033[0;33m Converted:\033[0m" $<
+	@echo -e "\n\033[0;32m[Binary Size]\033[0m"
+	@$(SIZE) $(BINDIR)/$(BINELF)
 
 $(BINDIR)/$(BINELF): $(OBJECTS)
-	mkdir -p $(BINDIR)
-	$(CXX) $(OBJECTS) $(LDFLAGS) -o $@
-	@echo "Linking complete!\n"
-	$(SIZE) $(BINDIR)/$(BINELF)
+	@mkdir -p $(BINDIR)
+	@$(CXX) $(OBJECTS) $(LDFLAGS) -o $@
+	@echo -e "\033[0;32m [OK] \033[0m       \033[0;33m Linked:\033[0m" $<
 
 $(OBJDIR)/%.o: %.cpp
-	mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $< -o $@
-	@echo "Compiled "$<"!\n"
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $< -o $@
+	@echo -e "\033[0;32m [OK] \033[0m       \033[0;33m Compiled:\033[0m" $<
 
 $(OBJDIR)/%.o: %.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $< -o $@
-	@echo "Compiled "$<"!\n"
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) $< -o $@
+	@echo -e "\033[0;32m [OK] \033[0m       \033[0;33m Compiled:\033[0m" $<
 
 $(OBJDIR)/%.o: %.s
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $< -o $@
-	@echo "Assambled "$<"!\n"
+	@echo -e "\033[0;32m[Compiling]\033[0m"
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) $< -o $@
+	@echo -e "\033[0;32m [OK] \033[0m       \033[0;33m Assembled:\033[0m" $<
 
 flash: release
+	@echo -e "\n\033[0;32m[Flashing]\033[0m"
 	@openocd -f interface/$(OPENOCD_INTERFACE).cfg \
 		-f target/$(OPENOCD_TARGET).cfg \
         -c "program $(BINDIR)/$(PROJECT).elf verify" \
 		-c "reset" \
         -c "exit"
 erase:
+	@echo -e "\n\033[0;32m[Erasing]\033[0m"
 	@openocd -f interface/$(OPENOCD_INTERFACE).cfg \
 		-f target/$(OPENOCD_TARGET).cfg \
 		-c "init" \
@@ -142,7 +147,7 @@ erase:
 		-c "$(OPENOCD_TARGET) mass_erase 0" \
         -c "exit"
 clean:
-	rm -rf obj bin
+	@rm -rf obj bin
 
 print-%  : ; @echo $* = $($*)
 
