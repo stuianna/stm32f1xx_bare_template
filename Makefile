@@ -2,7 +2,7 @@
 PROJECT=project
 
 # User defined global definitions
-DEFS = 
+DEFS =
 
 # Directory Structure
 BINDIR=bin
@@ -11,19 +11,24 @@ SRCDIR=src
 LIBDIR=lib
 OBJDIR=obj
 
+# Uncomment to use the arm-math library (DSP, PID, MATH functions)
+# This is pretty space hungy
+#USE_ARM_MATH=1
+
 # Startup File
 # Choose the correct one from lib/CMSIS/startup
-STARTUP = startup_stm32f10x_md.s
+STARTUP = startup_stm32f103xb.s
 
 # Linker Script, choose one from util/linker or modify one to suit
 # The files are fundamentally the same, just the memory mapping differs.
-LDSCRIPT=stm32f103vb_flash.ld
+LDSCRIPT=STM32F103XB_FLASH.ld
 
 OPENOCD_INTERFACE=stlink-v2
 OPENOCD_TARGET=stm32f1x
 
+
 # Define the processor family
-DEFS+= -DSTM32F10X_MD
+DEFS+= -DSTM32F103xB
 
 # C compilation flags
 CFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c99
@@ -32,7 +37,16 @@ CFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c
 CXXFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c++11
 
 # Linker flags
-LDFLAGS= -Wl,--gc-sections --static -nostartfiles -Wl,-Map=obj/$(PROJECT).map,--cref
+LDFLAGS= -Wl,--gc-sections --static -Wl,-Map=bin/$(PROJECT).map,--cref
+
+ifdef USE_ARM_MATH
+ARM_LIB_DIR=$(LIBDIR)/ARM
+ARM_STATIC_LIB=arm_cortexM3l_math
+DEFS += -DARM_MATH_CM3
+LDFLAGS+= --specs=nosys.specs -L$(ARM_LIB_DIR) -l$(ARM_STATIC_LIB)
+else
+LDFLAGS+= --specs=nano.specs
+endif
 
 # MCU FLAGS -> These can be found by sifting through openocd makefiles
 # Shouldn't need to be changed over the stm32f1xx family
@@ -93,7 +107,6 @@ debug: LDFLAGS+=-g
 debug: release
 
 release: $(BINDIR)/$(BINHEX)
-
 
 $(BINDIR)/$(BINHEX): $(BINDIR)/$(BINELF)
 	@$(CP) -O ihex $< $@
