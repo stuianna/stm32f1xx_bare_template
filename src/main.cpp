@@ -1,4 +1,4 @@
-#include <stm32f10x.h>
+#include <stm32f1xx.h>
 
 #define LED_PORT    GPIOC
 #define LED_PIN     13  
@@ -33,7 +33,7 @@ int main(void){
 void delayMs(uint16_t ms){
 
     for(uint16_t i = 0; i < ms; i++){
-        for(uint16_t j = 0; j < 0x1FFF; j++){
+        for(uint16_t j = 0; j < 0x6FF; j++){
             __ASM("NOP");
         }
     }
