@@ -31,10 +31,10 @@ OPENOCD_TARGET=stm32f1x
 DEFS+= -DSTM32F103xB
 
 # C compilation flags
-CFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c99
+CFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c99 -g
 
 # C++ compilation flags
-CXXFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c++11
+CXXFLAGS= -Wall -Wextra -Os -fno-common -ffunction-sections -fdata-sections -std=c++11 -g
 
 # Linker flags
 LDFLAGS= -Wl,--gc-sections --static -Wl,-Map=bin/$(PROJECT).map,--cref
