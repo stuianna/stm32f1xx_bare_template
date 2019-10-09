@@ -90,7 +90,7 @@ BINHEX=$(PROJECT).hex
 LDFLAGS += -T util/linker/$(LDSCRIPT) $(MCFLAGS) 
 
 # Build Rules
-.PHONY: all release release-memopt debug clean flash erase
+.PHONY: all release debug clean flash erase
 
 all: release
 
@@ -101,9 +101,9 @@ memory:
 	@echo -e "\033[0;32m[Top Memory Use]\033[0m"
 	@$(NM) -A -l -C -td --reverse-sort --size-sort $(BINDIR)/$(BINELF) | head -n10 | cat -n
 
-debug: CFLAGS+=-g
-debug: CXXFLAGS+=-g
-debug: LDFLAGS+=-g
+debug: CFLAGS+=-g3
+debug: CXXFLAGS+=-g3
+debug: LDFLAGS+=-g3
 debug: release
 
 release: $(BINDIR)/$(BINHEX)
