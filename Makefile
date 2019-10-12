@@ -7,6 +7,7 @@ DEFS =
 # Directory Structure
 BINDIR=bin
 INCDIR=inc
+INCDIR+=lib
 SRCDIR=src
 LIBDIR=lib
 OBJDIR=obj
@@ -71,6 +72,7 @@ CPPSOURCES=$(shell find -L $(SRCDIR) $(LIBDIR) -name '*.cpp')
 
 # Find header directories
 INC=$(shell find -L $(INCDIR) -name '*.h' -exec dirname {} \; | uniq)
+INC+=$(shell find -L $(INCDIR) -name '*.hpp' -exec dirname {} \; | uniq)
 INCLUDES=$(INC:%=-I%)
 
 CFLAGS += -c $(MCFLAGS) $(DEFS) $(INCLUDES)
