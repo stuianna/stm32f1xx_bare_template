@@ -46,7 +46,7 @@ ARM_STATIC_LIB=arm_cortexM3l_math
 DEFS += -DARM_MATH_CM3
 LDFLAGS+= --specs=nosys.specs -L$(ARM_LIB_DIR) -l$(ARM_STATIC_LIB)
 else
-LDFLAGS+= --specs=nano.specs
+LDFLAGS+= --specs=nosys.specs				# This was non.specs, but didn't work for a more complex project 
 endif
 
 # MCU FLAGS -> These can be found by sifting through openocd makefiles
